@@ -38,6 +38,7 @@ def dedup_to_one_hourly_reading(df):
   3) For every hour, sort readings made for the same hour in descending order
      of how close it was made to that hour, and keep only the closest reading.
   """
+  df = df.copy()
   hourly = df.index.round("1H")
   df.loc[:, "Hourly"] = hourly
   df["OffsetFromHour"] = ((df.index - df["Hourly"])
@@ -46,6 +47,7 @@ def dedup_to_one_hourly_reading(df):
   grouped = (df.groupby("Hourly").
              apply(lambda by_hour: by_hour.sort_values(["OffsetFromHour"])).
              drop_duplicates(["Hourly"], keep="first"))
+  grouped.index = grouped.Hourly
   return grouped
 
 
