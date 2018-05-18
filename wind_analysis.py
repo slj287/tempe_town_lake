@@ -9,6 +9,8 @@ import time
 
 import pandas as pd
 
+__version__ = 2
+
 months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 month_numbers = dict([(month, number)
