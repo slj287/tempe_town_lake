@@ -24,7 +24,8 @@ def load_asos(f, index_col=1):
     df = pd.read_csv(f, comment="#", skipinitialspace=True, na_values=["M"],
                      index_col=index_col,
                      infer_datetime_format=True, parse_dates=[index_col])
-    return df
+    df_sans_nans = df[df.sknt.notna() & df.drct.notna()].copy()
+    return df_sans_nans
 
 
 def dedup_to_one_hourly_reading(df):
