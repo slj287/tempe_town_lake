@@ -122,3 +122,28 @@ show()
 # boxplot all data by year
 pd.DataFrame({y: deduped_group[deduped_group.index.year == y].sknt for y in range(1993,2017)}).boxplot(figsize=(10,4))
 show()
+
+# Monthly graphs of average wind speed by hour
+
+m_before = by_month(deduped_group['1994':'1998'])
+m_after = by_month(deduped_group['2000':'2004'])
+m_after2 = by_month(deduped_group['2005':'2009'])
+m_after3 = by_month(deduped_group['2011':'2015'])
+
+pin = pd.PeriodIndex(start='Dec', periods=13, freq="M").strftime("%b")
+Pin = pd.PeriodIndex(start='Jan', periods=12, freq="M").strftime("%B")
+
+by_hour_each_month_before = pd.DataFrame(dict((mn, [hnd.sknt.mean() for (hn, hnd) in by_hour(m_before[mn]).items()]) for mn in m_before))
+by_hour_each_month_before.columns = pin[1:]
+by_hour_each_month_before.columns = Pin
+by_hour_each_month_after = pd.DataFrame(dict((mn, [hnd.sknt.mean() for (hn, hnd) in by_hour(m_after[mn]).items()]) for mn in m_before))
+by_hour_each_month_after.columns = Pin
+
+#by_hour_each_month_before["January"].plot()
+#by_hour_each_month_after["January"].plot()
+bva = pd.DataFrame({"Before": by_hour_each_month_before["January"],
+                     "After": by_hour_each_month_after["January"]},
+                      columns=["Before", "After"])
+bva.plot()
+plt.show()
+
