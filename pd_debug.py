@@ -1,6 +1,7 @@
 
 from datetime import datetime
 
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -77,9 +78,7 @@ def test_fit(y):
     title("Normal distribution: $\mu$ = %.2f,  std = %.2f, " % (mu, std) +
           "$\chi^2$ = %.2f, p = %.2f" % (chsq, p))
     plot(x_continuous, pdf_fitted, 'r-')
-
     plot(x_discrete, pdf_discrete, 'o')
-
     hist(y, normed=1, alpha=.3, bins=int(y.max()))
 
     show()
@@ -106,9 +105,17 @@ test_fit(aug_h[12][aug_h[12].index.year.isin(range(1999,2010)) & aug_h[12].drct.
 test_fit(aug_h[12][aug_h[12].index.year.isin(range(1999,2010))].sknt)
 #test_fit_weibull(aug_h[12][aug_h[12].index.year.isin(range(1999,2010)) & aug_h[12].drct.isin(range(45,135))].sknt)
 
+def rotate_xaxis_labels(plot):
+
+    x = plot.get_xaxis()
+    for l in x.get_ticklabels():
+        l.set_rotation(90.0)
+
 
 # boxplot by hour
-pd.DataFrame({h: aug_h[h][aug_h[h].index.year.isin(range(1999,2010))].sknt for h in range(24)}).boxplot()
+p = pd.DataFrame({h: aug_h[h][aug_h[h].index.year.isin(range(1999,2010))].sknt for h in range(24)}).boxplot()
+p.set_title("Speed ranges by hour of day in August (1999-2009)")
+p.set_ylim(-0.5,25.0)
 show()
 
 # THIS CANNOT BE RIGHT; IT HAS A SMALLER RANGE THAN THE FULL-YEAR DATA (see CY2000)!
@@ -116,9 +123,118 @@ show()
 
 # boxplot august data by year
 #pd.DataFrame({y: aug[aug.index.year == y].sknt for y in range(1999,2017)}).boxplot()
-pd.DataFrame({y: aug[aug.index.year == y].sknt for y in range(1993,2017)}).boxplot(figsize=(10,4))
+#figwidth = 10
+figwidth = 20
+p = pd.DataFrame({y: aug[aug.index.year == y].sknt for y in range(1993,2017)}).boxplot(figsize=(10,4))
+title("Speed ranges by year, in August (1993-2016)")
+p.set_ylim(-0.5,20.0)
+rotate_xaxis_labels(p)
 show()
 
 # boxplot all data by year
-pd.DataFrame({y: deduped_group[deduped_group.index.year == y].sknt for y in range(1993,2017)}).boxplot(figsize=(10,4))
+#figsize = (10,4)
+#figsize = (20,4)
+figsize = (10,8)
+p = pd.DataFrame({y: deduped_group[deduped_group.index.year == y].sknt for y in range(1993,2017)}).boxplot(figsize=(10,4))
+p.set_title("Speed ranges by year (1993-2017)")
+p.set_ylim(-0.5,20.0)
+rotate_xaxis_labels(p)
 show()
+
+# Monthly graphs of average wind speed by hour
+
+m_before = by_month(deduped_group['1994':'1998'])
+m_after = by_month(deduped_group['2000':'2004'])
+m_after2 = by_month(deduped_group['2005':'2009'])
+m_after3 = by_month(deduped_group['2011':'2015'])
+
+pin = pd.PeriodIndex(start='Dec', periods=13, freq="M").strftime("%b")
+Pin = pd.PeriodIndex(start='Jan', periods=12, freq="M").strftime("%B")
+
+by_hour_each_month_before = pd.DataFrame(dict((mn, [hnd.sknt.mean() for (hn, hnd) in by_hour(m_before[mn]).items()]) for mn in m_before))
+by_hour_each_month_before.columns = pin[1:]
+by_hour_each_month_before.columns = Pin
+by_hour_each_month_after = pd.DataFrame(dict((mn, [hnd.sknt.mean() for (hn, hnd) in by_hour(m_after[mn]).items()]) for mn in m_before))
+by_hour_each_month_after.columns = Pin
+
+#by_hour_each_month_before["January"].plot()
+#by_hour_each_month_after["January"].plot()
+bva = pd.DataFrame({"Before": by_hour_each_month_before["January"],
+                     "After": by_hour_each_month_after["January"]},
+                      columns=["Before", "After"])
+bva.plot()
+plt.show()
+
+# Average wind speed by month:
+
+monthly_avgs_before = [m[mnum]['1994':'1998'].sknt.mean() for mnum in m]
+monthly_avgs_after = [m[mnum]['2000':'2004'].sknt.mean() for mnum in m]
+monthly_avgs_after2 = [m[mnum]['2005':'2009'].sknt.mean() for mnum in m]
+monthly_avgs_after3 = [m[mnum]['2011':'2015'].sknt.mean() for mnum in m]
+
+readings_during_burst_period = phx_df[(burst < phx_df.index) & (phx_df.index < reopened)]
+m_dbp = by_month(readings_during_burst_period)
+monthly_avgs_dbp = [m[mnum].sknt.mean() for mnum in m_dbp]
+monthly_avgs_dbp_2 = [m[mnum].sknt.mean() if mnum in m_dbp else np.NaN for mnum in range(1,13)]
+monthly_avgs_dbp = monthly_avgs_dbp_2
+
+#pin = pd.PeriodIndex(start='Jan', end='Dec', freq="M").strftime("%b")
+#pi = pd.PeriodIndex(start='Jan', end='Dec', freq="M")
+
+# Define a month name range that's open at the beginning
+pin = pd.PeriodIndex(start='Dec', periods=13, freq="M").strftime("%b")
+
+bva_df = pd.DataFrame({"Before": monthly_avgs_before, "After": monthly_avgs_after},
+                      columns=["Before", "After"], index=pin[1:13])
+bva_df2 = pd.DataFrame({ "Before": monthly_avgs_before,
+                         "After (2000-2004)": monthly_avgs_after,
+                         "After (2005-2009)": monthly_avgs_after2,
+                         "After (2011-2015)": monthly_avgs_after3,},
+                       columns=[
+                           "Before",
+                           "After (2000-2004)",
+                           "After (2005-2009)",
+                           "After (2011-2015)"
+                       ], index=pin[1:13])
+
+pbn = readings_during_burst_period.index.month.unique()
+pbn.name = "Month"
+if False:
+    burst_df = pd.DataFrame({"While Burst (2010)": monthly_avgs_dbp},
+                            columns=[
+                             "While Burst (2010)",
+                            ], index=pbn).reindex(pins[1:13])
+else:
+    burst_df = pd.DataFrame({"While Burst (2010)": monthly_avgs_dbp},
+                            columns=[
+                             "While Burst (2010)",
+                            ], index=pin[1:13])
+bva_df3 = pd.DataFrame({ "Before": monthly_avgs_before,
+                         "After (2000-2004)": monthly_avgs_after,
+                         "After (2005-2009)": monthly_avgs_after2,
+                         "While Burst (2010)": monthly_avgs_dbp,
+                         "After (2011-2015)": monthly_avgs_after3,},
+                       columns=[
+                           "Before",
+                           "After (2000-2004)",
+                           "After (2005-2009)",
+                           "While Burst (2010)",
+                           "After (2011-2015)"
+                       ], index=pin[1:13])
+
+#bva_df.plot(use_index=True)
+pins = pd.Series(list(range(0, 13)), index=pin)
+bva_df.plot(xlim=(-1,12), xticks=pins)
+plt.show()
+
+bva_df2.plot(xlim=(-1,12), xticks=pins)
+plt.show()
+
+bva_df3.plot(xlim=(-1,12), xticks=pins)
+plt.show()
+
+
+# Exactly as in your example
+bva_df.plot(xlim=(-1,12), xticks=pins, style=["k", "k--"])
+plt.show()
+
