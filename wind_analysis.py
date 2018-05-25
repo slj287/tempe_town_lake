@@ -9,6 +9,8 @@ import time
 
 import pandas as pd
 
+__version__ = 2
+
 months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 month_numbers = dict([(month, number)
@@ -24,7 +26,8 @@ def load_asos(f, index_col=1):
     df = pd.read_csv(f, comment="#", skipinitialspace=True, na_values=["M"],
                      index_col=index_col,
                      infer_datetime_format=True, parse_dates=[index_col])
-    return df
+    df_sans_nans = df[df.sknt.notna() & df.drct.notna()].copy()
+    return df_sans_nans
 
 
 def dedup_to_one_hourly_reading(df):
@@ -37,6 +40,7 @@ def dedup_to_one_hourly_reading(df):
   3) For every hour, sort readings made for the same hour in descending order
      of how close it was made to that hour, and keep only the closest reading.
   """
+  df = df.copy()
   hourly = df.index.round("1H")
   df.loc[:, "Hourly"] = hourly
   df["OffsetFromHour"] = ((df.index - df["Hourly"])
@@ -45,6 +49,7 @@ def dedup_to_one_hourly_reading(df):
   grouped = (df.groupby("Hourly").
              apply(lambda by_hour: by_hour.sort_values(["OffsetFromHour"])).
              drop_duplicates(["Hourly"], keep="first"))
+  grouped.index = grouped.Hourly
   return grouped
 
 
