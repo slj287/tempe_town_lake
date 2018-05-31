@@ -38,6 +38,14 @@ def load_asos(f, index_col=1):
     return df_sans_nans
 
 
+def load_winds(f):
+
+    deduped_group = pd.read_csv(f, index_col=0,
+                                infer_datetime_format=True,
+                                parse_dates=[0])
+    return deduped_group
+
+
 def dedup_to_one_hourly_reading(df):
   """
   The input DataFrame should be indexed by the timestamp (aka "valid") field.
