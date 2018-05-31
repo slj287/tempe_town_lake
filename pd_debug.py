@@ -10,7 +10,8 @@ from numpy import linspace
 from pylab import plot,show,hist,figure,title
 
 from wind_analysis import (dedup_readings, load_asos, make_groups,
-                           by_hour, by_month)
+                           by_hour, by_month,
+                           month_index, mpin, mpins)
 
 filling_began = datetime(1999,6,2)
 declared_full = datetime(1999,7,14)
@@ -148,14 +149,12 @@ m_after = by_month(deduped_group['2000':'2004'])
 m_after2 = by_month(deduped_group['2005':'2009'])
 m_after3 = by_month(deduped_group['2011':'2015'])
 
-pin = pd.PeriodIndex(start='Dec', periods=13, freq="M").strftime("%b")
-Pin = pd.PeriodIndex(start='Jan', periods=12, freq="M").strftime("%B")
 
 by_hour_each_month_before = pd.DataFrame(dict((mn, [hnd.sknt.mean() for (hn, hnd) in by_hour(m_before[mn]).items()]) for mn in m_before))
-by_hour_each_month_before.columns = pin[1:]
-by_hour_each_month_before.columns = Pin
+by_hour_each_month_before.columns = mpin[1:]
+by_hour_each_month_before.columns = month_index
 by_hour_each_month_after = pd.DataFrame(dict((mn, [hnd.sknt.mean() for (hn, hnd) in by_hour(m_after[mn]).items()]) for mn in m_before))
-by_hour_each_month_after.columns = Pin
+by_hour_each_month_after.columns = month_index
 
 #by_hour_each_month_before["January"].plot()
 #by_hour_each_month_after["January"].plot()
@@ -178,14 +177,8 @@ monthly_avgs_dbp = [m[mnum].sknt.mean() for mnum in m_dbp]
 monthly_avgs_dbp_2 = [m[mnum].sknt.mean() if mnum in m_dbp else np.NaN for mnum in range(1,13)]
 monthly_avgs_dbp = monthly_avgs_dbp_2
 
-#pin = pd.PeriodIndex(start='Jan', end='Dec', freq="M").strftime("%b")
-#pi = pd.PeriodIndex(start='Jan', end='Dec', freq="M")
-
-# Define a month name range that's open at the beginning
-pin = pd.PeriodIndex(start='Dec', periods=13, freq="M").strftime("%b")
-
 bva_df = pd.DataFrame({"Before": monthly_avgs_before, "After": monthly_avgs_after},
-                      columns=["Before", "After"], index=pin[1:13])
+                      columns=["Before", "After"], index=mpin[1:13])
 bva_df2 = pd.DataFrame({ "Before": monthly_avgs_before,
                          "After (2000-2004)": monthly_avgs_after,
                          "After (2005-2009)": monthly_avgs_after2,
@@ -195,7 +188,7 @@ bva_df2 = pd.DataFrame({ "Before": monthly_avgs_before,
                            "After (2000-2004)",
                            "After (2005-2009)",
                            "After (2011-2015)"
-                       ], index=pin[1:13])
+                       ], index=mpin[1:13])
 
 pbn = readings_during_burst_period.index.month.unique()
 pbn.name = "Month"
@@ -203,12 +196,12 @@ if False:
     burst_df = pd.DataFrame({"While Burst (2010)": monthly_avgs_dbp},
                             columns=[
                              "While Burst (2010)",
-                            ], index=pbn).reindex(pins[1:13])
+                            ], index=pbn).reindex(mpins[1:13])
 else:
     burst_df = pd.DataFrame({"While Burst (2010)": monthly_avgs_dbp},
                             columns=[
                              "While Burst (2010)",
-                            ], index=pin[1:13])
+                            ], index=mpin[1:13])
 bva_df3 = pd.DataFrame({ "Before": monthly_avgs_before,
                          "After (2000-2004)": monthly_avgs_after,
                          "After (2005-2009)": monthly_avgs_after2,
@@ -220,21 +213,20 @@ bva_df3 = pd.DataFrame({ "Before": monthly_avgs_before,
                            "After (2005-2009)",
                            "While Burst (2010)",
                            "After (2011-2015)"
-                       ], index=pin[1:13])
+                       ], index=mpin[1:13])
 
 #bva_df.plot(use_index=True)
-pins = pd.Series(list(range(0, 13)), index=pin)
-bva_df.plot(xlim=(-1,12), xticks=pins)
+bva_df.plot(xlim=(-1,12), xticks=mpins)
 plt.show()
 
-bva_df2.plot(xlim=(-1,12), xticks=pins)
+bva_df2.plot(xlim=(-1,12), xticks=mpins)
 plt.show()
 
-bva_df3.plot(xlim=(-1,12), xticks=pins)
+bva_df3.plot(xlim=(-1,12), xticks=mpins)
 plt.show()
 
 
 # Exactly as in your example
-bva_df.plot(xlim=(-1,12), xticks=pins, style=["k", "k--"])
+bva_df.plot(xlim=(-1,12), xticks=mpins, style=["k", "k--"])
 plt.show()
 

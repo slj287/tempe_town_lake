@@ -2,6 +2,10 @@
 """Utility definitions and functions for analyzing winds in the
 vicinity of Tempe Town Lake.
 
+mpin         - Month Period Index, from 0 (=Dec), where Jan = 1
+mpins        - The Month Period Index as a Series
+month_index  - np.array(January .. December)
+month3_index - np.array(Jan .. Dec)
 """
 
 from datetime import datetime
@@ -9,10 +13,14 @@ import time
 
 import pandas as pd
 
-__version__ = 2
+__version__ = 3
 
-months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-          "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+mpin = pd.PeriodIndex(start='Dec', periods=13, freq="M").strftime("%b")
+mpins = pd.Series(list(range(0, 13)), index=mpin)
+month_index = pd.PeriodIndex(start='Jan', periods=12, freq="M").strftime("%B")
+month3_index = pd.PeriodIndex(start='Jan', periods=12, freq="M").strftime("%b")
+
+months = list(month3_index)  # Jan .. Dec
 month_numbers = dict([(month, number)
                       for number, month in enumerate(months, 1)])
 
