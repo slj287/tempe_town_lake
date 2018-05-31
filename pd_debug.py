@@ -9,7 +9,7 @@ from scipy.stats import norm, exponweib, chisquare
 from numpy import linspace
 from pylab import plot,show,hist,figure,title
 
-from wind_analysis import (dedup_readings, load_asos, make_groups,
+from wind_analysis import (load_asos, load_winds,
                            by_hour, by_month,
                            month_index, mpin, mpins)
 
@@ -25,28 +25,18 @@ plt.style.use('seaborn') # pretty matplotlib plots
 
 
 print("> Load raw readings")
-df = load_asos("phx_through_2017-12-20-23:55.csv", index_col=0)
+raw_df = load_asos("phx_through_2017-12-20-23:55.csv", index_col=0)
 
 if indexable_timestamp:
-    df["timestamp"] = pd.DatetimeIndex(df.index)
+    raw_df["timestamp"] = pd.DatetimeIndex(raw_df.index)
 else:
-    df["timestamp"] = df.index
+    raw_df["timestamp"] = raw_df.index
 
-phx_df = df[['timestamp', 'drct', 'sknt']]
+phx_df = raw_df[['timestamp', 'drct', 'sknt']]
 
-load_from_file = "ddg-2018-04-11.csv"
-if take_all:
-    if True and load_from_file:
-        print("> Load pre-deduped-readings")
-        deduped_group = pd.read_csv(load_from_file, index_col=0,
-                                    infer_datetime_format=True, parse_dates=[0])
-    else:
-        print("> Dedup readings")
-        deduped_group = dedup_readings(phx_df)
-else:
-    dtd = phx_df[-1000:]
-    dtd.loc["Hourly1"] = dtd.index.round("1H")
-    deduped_group = dedup_readings(phx_df, start=-1000)
+load_from_file = "ddg.csv"
+print("> Load pre-deduped-readings from: %s" % (load_from_file))
+deduped_group = load_winds(load_from_file)
 
 if "Hourly" in deduped_group.columns:
     deduped_group.index = deduped_group.Hourly
