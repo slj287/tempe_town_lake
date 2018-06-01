@@ -11,6 +11,8 @@ month3_index - np.array(Jan .. Dec)
 from datetime import datetime
 import time
 
+import matplotlib.pyplot as plt
+from matplotlib.font_manager import FontProperties
 import pandas as pd
 
 __version__ = 3
@@ -23,6 +25,7 @@ month3_index = pd.PeriodIndex(start='Jan', periods=12, freq="M").strftime("%b")
 months = list(month3_index)  # Jan .. Dec
 month_numbers = dict([(month, number)
                       for number, month in enumerate(months, 1)])
+month_names = list(month_index)
 
 filling_began = datetime(1999,6,2)
 declared_full = datetime(1999,7,14)
@@ -159,3 +162,117 @@ def by_month(ddg):
     groupby_month = ddg.groupby((ddg.index.month))
     m = dict((n, groupby_month.get_group(n)) for n in groupby_month.groups)
     return m
+
+
+def month_index_generator():
+
+    nr = 4
+    nc = 3
+    # 012 345 678 9ab puts 0 in the LL corner
+    # we want 9ab 678 345 012, which is 12 - (nc*(1+(mn//nc))) + (mn%nc)
+    for mn in range(12):
+        b = (nc*(1+(mn//nc)))
+        c = (mn%nc)
+        fn = (12 - b + c)
+        yield fn
+
+
+def plot_avg_by_hour(period_list, month, i, j):
+
+    figwidth = 1.5
+    figheight = 1.3
+
+    month_n = month - 1
+    for_month = dict([(k, v[month_n+1]) for (k,v) in period_list])
+
+    mdf = pd.DataFrame(for_month,
+                       columns=for_month.keys())
+    a = mdf.plot()
+    if i != 0:
+        a.set_xticklabels([])
+    a.set_ylim(-0.5,11.0)
+    if i == 0:
+        x = a.get_xaxis()
+        #print("%s" % (a.get_xticklabels()))
+        a.set_xticklabels([0, 6, 12, 18, 24])
+
+    x0 = 10.0
+    y0 = 8 * figheight * .95
+    print("Title text @ (%.f, %f)" % (x0, y0))
+    bb = a.get_window_extent()
+    print("width, height = %f, %f" % (bb.width, bb.height))
+    a.text(x0, y0, "%s" % (month_names[month_n]), fontsize="xx-large")
+
+    plt.legend(bbox_to_anchor=(0, -0.1), loc=2, borderaxespad=0.)
+    return a
+
+
+def plot_monthly_avg_by_hour(period_list):
+    """
+    period_list - A list of (period_name, avgs_by_hour) tuples.
+
+    Example:
+      df = load_winds(from_file)
+      m_before = by_month(df['1994':'1998'])
+      m_after = by_month(df['2000':'2004'])
+      by_month_before = dict((mn,
+                              [hnd.sknt.mean()
+                              for (hn, hnd) in
+                              by_hour(m_before[mn]).items()])
+                             for mn in m_before)
+      by_hour_each_month_before = pd.DataFrame(by_month_before)
+      by_month_after = dict((mn,
+                             [hnd.sknt.mean()
+                             for (hn, hnd) in
+                             by_hour(m_after[mn]).items()])
+                            for mn in m_after)
+      by_hour_each_month_after = pd.DataFrame(by_month_after)
+
+     plot_monthly_avg_by_hour([("Before", before),
+                               ("After", after)])
+
+    """
+    figwidth = 1.5
+    figheight = 1.3
+    Nr = 4
+    Nc = 3
+    w = (figwidth / Nc) * 0.8
+    h = (figheight / Nr) * 2 / 3
+
+    fig = plt.figure()
+    figtitle = 'Mean wind speed (kts.) by hour of day for each month'
+    tx = (figwidth / 2) * .85
+    ty = figheight * .95
+    t = fig.text(tx, ty, figtitle,
+                 horizontalalignment='center', fontproperties=FontProperties(size=16))
+    ax = []
+    month_index = month_index_generator()
+    for i in range(Nr):
+        for j in range(Nc):
+            pos = [0.075 + j*1.1*w, 0.18 + i*1.2*h, w, h]
+            month_n = next(month_index)
+            a = fig.add_axes(pos)
+            if i != 0:
+                a.set_xticklabels([])
+            if j != 0:
+                a.set_yticklabels([])
+            for_month = dict([(k, v[month_n+1]) for (k,v) in period_list])
+            bva = pd.DataFrame(for_month,
+                               columns=for_month.keys())
+            a.set_ylim(-0.5,12.0)
+            if i == 0:
+                x = a.get_xaxis()
+                a.set_xticks([0, 6, 12, 18, 24])
+
+            x0 = 8.0
+            y0 = 7 * figheight * .95
+            a.text(x0, y0, "%s" % (month_names[month_n]), fontsize="large")
+
+            periods_before = len([x for x in bva.columns
+                                  if x.lower().startswith("before")])
+            periods_after = len([x for x in bva.columns
+                                  if x.lower().startswith("after")])
+            a.plot(bva)
+            ax.append(a)
+    ax[-1].legend(bva.columns, bbox_to_anchor=(.45, 1.5), loc=2, borderaxespad=0.)
+    return ax
