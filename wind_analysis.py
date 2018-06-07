@@ -16,6 +16,8 @@ from matplotlib.font_manager import FontProperties
 import pandas as pd
 
 from data_sources import in_out_file_map
+from stat_support import outlier_bounds
+
 
 __version__ = 4
 
@@ -353,3 +355,34 @@ def plot_monthly_avg_by_hour(period_list):
             ax.append(a)
     ax[-1].legend(bva.columns, bbox_to_anchor=(.45, 1.5), loc=2, borderaxespad=0.)
     return ax
+
+
+def find_extreme_outliers(df):
+
+    lower, upper = outlier_bounds(df.sknt, iqr_scale=10)
+    df1, sc = annotate_abnormal_speeds(df)
+    o = df[(df.ratio < .4) & (df.sknt > upper)]
+    n4 = len(o)
+    n3 = len(df[(df.ratio < .3) & (df.sknt > upper)])
+    n2 = len(df[(df.ratio < .2) & (df.sknt > upper)])
+    n1 = len(df[(df.ratio < .1) & (df.sknt > upper)])
+    # a ratio of .2 is almost as if to say the log(sknt) is within a factor of 2 of the others
+    print("> method_1: Number of points with ratio < (.4, .3, .2, .1): " +
+          "%d, %d, %d, %d" % (n4, n3, n2, n1))
+    return o
+
+
+def annotate_abnormal_speeds(odf):
+
+    print("> Find abnormal speeds")
+    df = odf
+    print(">   prev")
+    df.loc[:,"prev"] = df.sknt.shift()
+    print(">   next")
+    df.loc[:,"next"] = df.sknt.shift(-1)
+    print(">   ratio")
+    df.loc[:,"ratio"] = (df.prev + df.next) / (df.sknt + df.prev + df.next)
+    # restrict first to significantly (non-zero) changes:
+    print(">   generate sc")
+    sc = df.loc[df["ratio"].abs() < .1]
+    return df, sc
