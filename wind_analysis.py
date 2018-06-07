@@ -320,7 +320,7 @@ def plot_monthly_avg_by_hour(period_list):
 
     fig = plt.figure()
     figtitle = 'Mean wind speed (kts.) by hour of day for each month'
-    tx = (figwidth / 2) * .85
+    tx = (figwidth / 2) * .80
     ty = figheight * .95
     t = fig.text(tx, ty, figtitle,
                  horizontalalignment='center', fontproperties=FontProperties(size=16))
