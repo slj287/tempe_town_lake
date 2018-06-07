@@ -21,6 +21,7 @@ if os.path.dirname(cwd) not in sys.path:
     print("add %s to sys.path" % (cwd))
     sys.path.append(cwd)
 
+from data_sources import in_out_file_map
 from stat_support import (find_outlier_indices,
                           find_outliers,
                           plot_outliers)
