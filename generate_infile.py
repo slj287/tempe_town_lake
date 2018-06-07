@@ -5,7 +5,7 @@ import sys
 import pandas as pd
 
 from data_sources import in_out_file_map
-from wind_analysis import narrow_asos_df_to_valid_hourly
+from wind_analysis import load_asos, narrow_asos_df_to_valid_hourly
 
 
 def generate_for_station(station_sym="PHX"):
