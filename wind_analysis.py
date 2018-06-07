@@ -72,7 +72,7 @@ def dedup_to_one_hourly_reading(df):
   return grouped
 
 
-def dedup_readings(df, start=None, end=None):
+def dedup_readings(df, start=None, end=None, cleanup=True):
     """Return readings grouped by hour.
     See: dedup_to_one_hourly_reading
     """
@@ -125,6 +125,15 @@ def dedup_readings(df, start=None, end=None):
         # ValueError: Length of values does not match length of index
         grouped["timestamp"] = grouped.index
         grouped.index = grouped.Hourly
+
+    if cleanup:
+        if "Hourly" in grouped.columns:
+            grouped.index = grouped.Hourly
+        cols_to_drop = (set(grouped.columns)
+                        .intersection(set(["Hourly", "Hourly.1",
+                                           "OffsetFromHour"])))
+        if cols_to_drop:
+            grouped.drop(cols_to_drop, axis=1, inplace=True)
 
     return grouped
 
