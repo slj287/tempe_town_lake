@@ -15,7 +15,9 @@ import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
 import pandas as pd
 
-__version__ = 3
+from data_sources import in_out_file_map
+
+__version__ = 4
 
 mpin = pd.PeriodIndex(start='Dec', periods=13, freq="M").strftime("%b")
 mpins = pd.Series(list(range(0, 13)), index=mpin)
@@ -32,6 +34,44 @@ declared_full = datetime(1999,7,14)
 burst = datetime(2010,7,20)
 reopened = datetime(2010, 10, 26)
 
+default_station_sym = "PHX"
+
+
+_saved_raw_asos = dict()
+def get_asos_df(station_sym=default_station_sym, copy=True):
+    """Note: Only set copy=False if the return value is going to be kept
+    read-only.
+
+    """
+    global _saved_raw_asos
+
+    if station_sym in _saved_raw_asos:
+        if copy:
+            return _saved_raw_asos[station_sym].copy()
+        else:
+            return _saved_raw_asos[station_sym]
+    infile, idx, _ = in_out_file_map[station_sym]
+    print("> Load raw readings from %s" % (infile))
+    df0 = load_asos(infile, index_col=idx)
+    _saved_raw_asos[station_sym] = df0
+    if copy:
+        return df0.copy()
+    else:
+        return df0
+
+
+_saved_winds = dict()
+def get_starting_df(station_sym=None):
+
+    _station_sym = station_sym or default_station_sym
+    if _station_sym in _saved_winds:
+        return _saved_winds[_station_sym].copy()
+    df0 = get_asos_df(_station_sym)
+    df1 = narrow_asos_df_to_winds(df0)
+    _saved_winds[_station_sym] = df1
+    return df1.copy()
+
+
 def load_asos(f, index_col=1):
 
     df = pd.read_csv(f, comment="#", skipinitialspace=True, na_values=["M"],
@@ -39,6 +79,34 @@ def load_asos(f, index_col=1):
                      infer_datetime_format=True, parse_dates=[index_col])
     df_sans_nans = df[df.sknt.notna() & df.drct.notna()].copy()
     return df_sans_nans
+
+
+def narrow_asos_df_to_winds(df):
+    """In pulling from generate_for_station, we dropped a hardcoded switch
+    in case pd.DatetimeIndex is already indexable. The code here seems
+    to work either way.
+
+    """
+
+    df["timestamp"] = pd.DatetimeIndex(df.index)
+
+    print(">!!! Validate wind speed against METAR (TBI)")
+    if False:
+        df["sknt_metar"] = df.metar.map()
+    print("> Narrowing to timestamp, drct, and sknt (+ dropping NaNs)")
+    wind_df = df[df.sknt.notna() & df.drct.notna()][['timestamp', 'drct', 'sknt']]
+    return wind_df
+
+
+def narrow_asos_df_to_valid_hourly(df):
+
+    wind_df = narrow_asos_df_to_winds(df)
+
+    print("> Dedup readings")
+    deduped_group = dedup_readings(wind_df, cleanup=True)
+
+    print("To get NaNs for hours without readings, wind_df.resample(\"H\")?")
+    return deduped_group
 
 
 def load_winds(f):
