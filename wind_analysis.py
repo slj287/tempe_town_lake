@@ -353,7 +353,7 @@ def plot_monthly_avg_by_hour(period_list):
                                   if x.lower().startswith("after")])
             a.plot(bva)
             ax.append(a)
-    ax[-1].legend(bva.columns, bbox_to_anchor=(.45, 1.5), loc=2, borderaxespad=0.)
+    ax[-1].legend(bva.columns, bbox_to_anchor=(.45, 2), loc=2, borderaxespad=0.)
     return ax
 
 
