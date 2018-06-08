@@ -5,6 +5,7 @@ Experiments to understand filterability of outliers, e.g. at SDL & FFZ
 TODO: Check Williams Gateway quality
 """
 
+import os
 import unittest
 
 import matplotlib.pyplot as plt
@@ -144,6 +145,19 @@ def autocorr_file(f):
 
 
 class Tests(unittest.TestCase):
+
+    def test_autocorrs(self):
+
+        usual_place = os.path.join(os.getenv("HOME"),
+                                   "src", "SJ")
+        if os.path.exists(usual_place):
+            parent_dir = usual_place
+        else:
+            parent_dir = os.dirname(os.getcwd())
+        files = [f for f in os.listdir(parent_dir) if f.endswith(".txt")]
+        files.sort()
+        for f in files:
+            autocorr_file(os.path.join(parent_dir, f))
 
     def test_com_2_0_ffz(self):
 
