@@ -9,6 +9,7 @@ month3_index - np.array(Jan .. Dec)
 """
 
 from datetime import datetime
+import os
 import time
 
 import matplotlib.pyplot as plt
@@ -71,6 +72,21 @@ def get_starting_df(station_sym=None):
     df0 = get_asos_df(_station_sym)
     df1 = narrow_asos_df_to_winds(df0)
     _saved_winds[_station_sym] = df1
+    return df1.copy()
+
+
+_saved_dedup = dict()
+def get_deduped_df(station_sym=None):
+
+    _station_sym = station_sym or default_station_sym
+    if _station_sym in _saved_dedup:
+        return _saved_dedup[_station_sym].copy()
+    infile, idx, outfile = in_out_file_map[_station_sym]
+    if os.path.exists(outfile):
+        df1 = load_winds(outfile)
+    else:
+        df1 = generate_deduped_winds(_station_sym, outfile)
+    _saved_dedup[_station_sym] = df1
     return df1.copy()
 
 
