@@ -9,13 +9,18 @@ month3_index - np.array(Jan .. Dec)
 """
 
 from datetime import datetime
+import os
 import time
 
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
 import pandas as pd
 
-__version__ = 3
+from data_sources import in_out_file_map
+from stat_support import outlier_bounds
+
+
+__version__ = 4
 
 mpin = pd.PeriodIndex(start='Dec', periods=13, freq="M").strftime("%b")
 mpins = pd.Series(list(range(0, 13)), index=mpin)
@@ -32,6 +37,59 @@ declared_full = datetime(1999,7,14)
 burst = datetime(2010,7,20)
 reopened = datetime(2010, 10, 26)
 
+default_station_sym = "PHX"
+
+
+_saved_raw_asos = dict()
+def get_asos_df(station_sym=default_station_sym, copy=True):
+    """Note: Only set copy=False if the return value is going to be kept
+    read-only.
+
+    """
+    global _saved_raw_asos
+
+    if station_sym in _saved_raw_asos:
+        if copy:
+            return _saved_raw_asos[station_sym].copy()
+        else:
+            return _saved_raw_asos[station_sym]
+    infile, idx, _ = in_out_file_map[station_sym]
+    print("> Load raw readings from %s" % (infile))
+    df0 = load_asos(infile, index_col=idx)
+    _saved_raw_asos[station_sym] = df0
+    if copy:
+        return df0.copy()
+    else:
+        return df0
+
+
+_saved_winds = dict()
+def get_starting_df(station_sym=None):
+
+    _station_sym = station_sym or default_station_sym
+    if _station_sym in _saved_winds:
+        return _saved_winds[_station_sym].copy()
+    df0 = get_asos_df(_station_sym)
+    df1 = narrow_asos_df_to_winds(df0)
+    _saved_winds[_station_sym] = df1
+    return df1.copy()
+
+
+_saved_dedup = dict()
+def get_deduped_df(station_sym=None):
+
+    _station_sym = station_sym or default_station_sym
+    if _station_sym in _saved_dedup:
+        return _saved_dedup[_station_sym].copy()
+    infile, idx, outfile = in_out_file_map[_station_sym]
+    if os.path.exists(outfile):
+        df1 = load_winds(outfile)
+    else:
+        df1 = generate_deduped_winds(_station_sym, outfile)
+    _saved_dedup[_station_sym] = df1
+    return df1.copy()
+
+
 def load_asos(f, index_col=1):
 
     df = pd.read_csv(f, comment="#", skipinitialspace=True, na_values=["M"],
@@ -41,7 +99,59 @@ def load_asos(f, index_col=1):
     return df_sans_nans
 
 
-def load_winds(f):
+def narrow_asos_df_to_winds(df):
+    """In pulling from generate_for_station, we dropped a hardcoded switch
+    in case pd.DatetimeIndex is already indexable. The code here seems
+    to work either way.
+
+    """
+
+    df["timestamp"] = pd.DatetimeIndex(df.index)
+
+    if False:
+        # TODO: Validate wind speed against METAR
+        print(">!!! Validate wind speed against METAR (TBI)")
+        df["sknt_metar"] = df.metar.map()
+    print("> Narrowing to timestamp, drct, and sknt (+ dropping NaNs)")
+    wind_df = df[df.sknt.notna() & df.drct.notna()][['timestamp', 'drct', 'sknt']]
+    return wind_df
+
+
+def narrow_asos_df_to_valid_hourly(df):
+
+    wind_df = narrow_asos_df_to_winds(df)
+
+    print("> Dedup readings")
+    deduped_group = dedup_readings(wind_df, cleanup=True)
+
+    print("To get NaNs for hours without readings, wind_df.resample(\"H\")?")
+    return deduped_group
+
+
+def generate_deduped_winds(station_sym, drop_outliers=False):
+
+    infile, index_col_for_this_file, outfile = in_out_file_map[station_sym]
+
+    print("> Load raw readings from %s" % (infile))
+    df = load_asos(infile, index_col=index_col_for_this_file)
+    print(">   loaded %d reading(s)" % (len(df)))
+
+    o = find_extreme_outliers(df)
+    if o is not None:
+        if drop_outliers:
+            print("> Count of extreme outliers to drop: %d" % (len(o)))
+            df = df.drop(o.index)
+            print(">   count of reading(s) remaining: %d" % (len(df)))
+        else:
+            print("> Count of extreme outliers (not dropped): %d" % (len(o)))
+
+    deduped_group = narrow_asos_df_to_valid_hourly(df)
+    deduped_group.to_csv(outfile)
+    print("> You now have a sparse set of hourly readings in %s." % (outfile))
+    return deduped_group
+
+
+def load_winds(f, use_cache=True, write_cache=False):
 
     deduped_group = pd.read_csv(f, index_col=0,
                                 infer_datetime_format=True,
@@ -72,7 +182,7 @@ def dedup_to_one_hourly_reading(df):
   return grouped
 
 
-def dedup_readings(df, start=None, end=None):
+def dedup_readings(df, start=None, end=None, cleanup=True):
     """Return readings grouped by hour.
     See: dedup_to_one_hourly_reading
     """
@@ -125,6 +235,15 @@ def dedup_readings(df, start=None, end=None):
         # ValueError: Length of values does not match length of index
         grouped["timestamp"] = grouped.index
         grouped.index = grouped.Hourly
+
+    if cleanup:
+        if "Hourly" in grouped.columns:
+            grouped.index = grouped.Hourly
+        cols_to_drop = (set(grouped.columns)
+                        .intersection(set(["Hourly", "Hourly.1",
+                                           "OffsetFromHour"])))
+        if cols_to_drop:
+            grouped.drop(cols_to_drop, axis=1, inplace=True)
 
     return grouped
 
@@ -241,7 +360,7 @@ def plot_monthly_avg_by_hour(period_list):
 
     fig = plt.figure()
     figtitle = 'Mean wind speed (kts.) by hour of day for each month'
-    tx = (figwidth / 2) * .85
+    tx = (figwidth / 2) * .80
     ty = figheight * .95
     t = fig.text(tx, ty, figtitle,
                  horizontalalignment='center', fontproperties=FontProperties(size=16))
@@ -274,5 +393,36 @@ def plot_monthly_avg_by_hour(period_list):
                                   if x.lower().startswith("after")])
             a.plot(bva)
             ax.append(a)
-    ax[-1].legend(bva.columns, bbox_to_anchor=(.45, 1.5), loc=2, borderaxespad=0.)
+    ax[-1].legend(bva.columns, bbox_to_anchor=(.45, 2), loc=2, borderaxespad=0.)
     return ax
+
+
+def find_extreme_outliers(df):
+
+    lower, upper = outlier_bounds(df.sknt, iqr_scale=10)
+    df1, sc = annotate_abnormal_speeds(df)
+    o = df[(df.ratio < .4) & (df.sknt > upper)]
+    n4 = len(o)
+    n3 = len(df[(df.ratio < .3) & (df.sknt > upper)])
+    n2 = len(df[(df.ratio < .2) & (df.sknt > upper)])
+    n1 = len(df[(df.ratio < .1) & (df.sknt > upper)])
+    # a ratio of .2 is almost as if to say the log(sknt) is within a factor of 2 of the others
+    print("> method_1: Number of points with ratio < (.4, .3, .2, .1): " +
+          "%d, %d, %d, %d" % (n4, n3, n2, n1))
+    return o
+
+
+def annotate_abnormal_speeds(odf):
+
+    print("> Find abnormal speeds")
+    df = odf
+    print(">   prev")
+    df.loc[:,"prev"] = df.sknt.shift()
+    print(">   next")
+    df.loc[:,"next"] = df.sknt.shift(-1)
+    print(">   ratio")
+    df.loc[:,"ratio"] = (df.prev + df.next) / (df.sknt + df.prev + df.next)
+    # restrict first to significantly (non-zero) changes:
+    print(">   generate sc")
+    sc = df.loc[df["ratio"].abs() < .1]
+    return df, sc
