@@ -16,12 +16,16 @@ import sys
 import matplotlib.pyplot as plt
 import pandas as pd
 
+from data_sources import in_out_file_map
+
+
 cwd = os.getcwd()
 if os.path.dirname(cwd) not in sys.path:
     print("add %s to sys.path" % (cwd))
     sys.path.append(cwd)
 
 from wind_analysis import (load_winds,
+                           get_deduped_df,
                            plot_avg_by_hour, plot_monthly_avg_by_hour,
                            by_month, by_hour)
 
@@ -56,6 +60,18 @@ def get_period_data():
 
 class Tests(unittest.TestCase):
 
+    def test_0_getting_deduped_dfs(self):
+
+        for tag in in_out_file_map:
+            df = get_deduped_df(tag)
+
+    def test_0_verify_no_nans(self):
+
+        for tag in in_out_file_map:
+            df = get_deduped_df(tag)
+            self.assertFalse(df.drct.isna().any())
+            self.assertFalse(df.sknt.isna().any())
+
     def test_1(self):
 
         periods = get_period_data()
@@ -69,6 +85,7 @@ class Tests(unittest.TestCase):
         print("Q in the plot window to Quit")
         plot_monthly_avg_by_hour(periods)
         plt.show()
+
 
 if __name__ == "__main__":
 
