@@ -92,8 +92,9 @@ def narrow_asos_df_to_winds(df):
 
     df["timestamp"] = pd.DatetimeIndex(df.index)
 
-    print(">!!! Validate wind speed against METAR (TBI)")
     if False:
+        # TODO: Validate wind speed against METAR
+        print(">!!! Validate wind speed against METAR (TBI)")
         df["sknt_metar"] = df.metar.map()
     print("> Narrowing to timestamp, drct, and sknt (+ dropping NaNs)")
     wind_df = df[df.sknt.notna() & df.drct.notna()][['timestamp', 'drct', 'sknt']]
@@ -111,7 +112,30 @@ def narrow_asos_df_to_valid_hourly(df):
     return deduped_group
 
 
-def load_winds(f):
+def generate_deduped_winds(station_sym, drop_outliers=False):
+
+    infile, index_col_for_this_file, outfile = in_out_file_map[station_sym]
+
+    print("> Load raw readings from %s" % (infile))
+    df = load_asos(infile, index_col=index_col_for_this_file)
+    print(">   loaded %d reading(s)" % (len(df)))
+
+    o = find_extreme_outliers(df)
+    if o is not None:
+        if drop_outliers:
+            print("> Count of extreme outliers to drop: %d" % (len(o)))
+            df = df.drop(o.index)
+            print(">   count of reading(s) remaining: %d" % (len(df)))
+        else:
+            print("> Count of extreme outliers (not dropped): %d" % (len(o)))
+
+    deduped_group = narrow_asos_df_to_valid_hourly(df)
+    deduped_group.to_csv(outfile)
+    print("> You now have a sparse set of hourly readings in %s." % (outfile))
+    return deduped_group
+
+
+def load_winds(f, use_cache=True, write_cache=False):
 
     deduped_group = pd.read_csv(f, index_col=0,
                                 infer_datetime_format=True,
